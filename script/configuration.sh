@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+RIAK_VERSION='2.1.1'
+RIAK_CS_VERSION='2.0.1'
+STANCHION_VERSION='2.0.0'

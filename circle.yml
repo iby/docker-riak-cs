@@ -1,0 +1,19 @@
+machine:
+  services:
+    - docker
+
+test:
+  override:
+    - docker build -t ianbytchek/riak-cs .
+    - docker run -d -p 8080:8080 ianbytchek/riak-cs; sleep 20
+    - curl --retry 10 --retry-delay 5 -v http://localhost:8080
+
+deployment:
+  hub:
+    branch: master
+    commands:
+
+      # Authenticate with docker and push the latest image.
+
+      - docker login -e $DOCKER_HUB_EMAIL -u $DOCKER_HUB_USER -p $DOCKER_HUB_PASSWORD
+      - docker push ianbytchek/riak-cs
