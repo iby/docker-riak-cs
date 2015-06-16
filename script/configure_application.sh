@@ -56,13 +56,25 @@ function basho_service_start() {
 # @param $1 Command name.
 # @param $2 Service name.
 #
-function basho_service_stop() {
-    commandName=$1
-    serviceName=$2
+function basho_service_restart() {
+    local commandName=$1
+    local serviceName=$2
+    local tries=0
+    local maxTries=5
 
-    echo -n "Stopping ${serviceName}…"
-    $commandName stop > /dev/null
+    echo -n "Restarting ${serviceName}…"
+    $commandName restart > /dev/null
     echo " OK!"
+
+    until (riak ping | grep "pong" > /dev/null) || ((++tries >= maxTries)) ; do
+        echo "Waiting for ${serviceName}…"
+        sleep 1
+    done
+
+    if ((tries >= maxTries)); then
+        echo -e "\nCould not restart ${serviceName} after ${tries} attempts…"
+        exit 1
+    fi
 }
 
 #
@@ -95,6 +107,9 @@ key=$(echo -n $credentials | pcregrep -o '"key_id"\h*:\h*"\K([^"]*)')
 secret=$(echo -n $credentials | pcregrep -o '"key_secret"\h*:\h*"\K([^"]*)')
 
 riak_cs_update_admin $key $secret
+
+basho_service_restart 'stanchion' 'Stanchion'
+basho_service_restart 'riak-cs' 'Riak CS'
 
 # Create admin credentials.
 
