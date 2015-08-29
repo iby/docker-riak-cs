@@ -7,6 +7,7 @@ cd $(dirname $0)
 . functions.sh
 . configuration.sh
 . install_dependencies.sh
+. patch_configuration.sh
 
 echo 'Cleaning up container.'
 
