@@ -5,25 +5,61 @@
 cd $(dirname $0)
 . functions.sh
 
-function riak_cs_bucket_create(){
+#
+# @param $1 Riak CS admin key.
+# @param $2 Riak CS admin secret.
+# @param $3 Riak CS bucket to create.
+#
+function riak_cs_create_bucket(){
     local key=$1
     local secret=$2
     local bucket=$3
 
-    # To say this hmac bitch is a motherfucking nonsense is to say nothing… The signed string has to match to a single
-    # space and character. If it doesn't, it won't work.
+    # We must use signed requests to make any calls to the service, this apparently isn't very easy. They are in great
+    # detail explained in S3 documentation available at the address below. This also looks a little more confusing,
+    # because we'd ideally use domain names, but we can't, as we are inside the container. So, we make all calls to
+    # local host, any non bucket paths must be appended to the primary url, while bucket always goes in the host header.
+    #
+    # http://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html
+    # http://docs.basho.com/riakcs/latest/references/apis/storage/s3/RiakCS-GET-Bucket/
+    # http://docs.basho.com/riakcs/latest/references/apis/storage/s3/RiakCS-PUT-Bucket/
+    # http://docs.basho.com/riakcs/latest/tutorials/quick-start-riak-cs/
 
-    date="$(LC_ALL=C date -u +"%a, %d %b %Y %X %z")"
-    signature="$(printf "PUT\n\n\n\nx-amz-date:${date}\n/${bucket}/" | openssl sha1 -binary -hmac "${secret}" | base64)"
+    echo -n "${bucket}…"
 
-    echo -n "${bucket}"
+    local date=$(date -R)
+    local signature="$(printf "GET\n\n\n${date}\n/${bucket}/" | openssl sha1 -binary -hmac "${secret}" | base64)"
 
-    curl -ks -X PUT "/${bucket}/" "http://127.0.0.1:8080" \
-        -H "Host: ${bucket}.s3.amazonaws.dev" \
-        -H "x-amz-date: ${date}" \
-        -H "Authorization: AWS ${key}:${signature}"
+    local status_code=$(curl --insecure --silent \
+        --request GET \
+        --header "Authorization: AWS ${key}:${signature}" \
+        --header "Date: ${date}" \
+        --header "Host: ${bucket}.s3.amazonaws.dev" \
+        --output /dev/null \
+        --write-out '%{http_code}' \
+        "http://127.0.0.1:8080")
 
-    echo ' OK!'
+    if [[ "${status_code}" = '200' ]]; then
+        echo ' Already exists!'
+    else
+        local date=$(date -R)
+        local signature="$(printf "PUT\n\n\n${date}\n/${bucket}/" | openssl sha1 -binary -hmac "${secret}" | base64)"
+
+        local status_code=$(curl --insecure --silent \
+            --request PUT \
+            --header "Authorization: AWS ${key}:${signature}" \
+            --header "Date: ${date}" \
+            --header "Host: ${bucket}.s3.amazonaws.dev" \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            "http://127.0.0.1:8080")
+
+        if [ "${status_code}" = '200' ]; then
+            echo ' OK!'
+        else
+            echo ' Failed!'
+        fi
+    fi
 }
 
 #
@@ -65,59 +101,83 @@ function basho_service_stop() {
     echo " OK!"
 }
 
-#
-# @param $1 Admin key.
-# @param $2 Admin secret.
-#
-function riak_cs_update_admin(){
-    local key=$1
-    local secret=$2
+function riak_cs_create_admin(){
     local riakCsConfigPath='/etc/riak-cs/advanced.config'
     local stanchionConfigPath='/etc/stanchion/advanced.config'
 
-    patchConfig $riakCsConfigPath '\Q{anonymous_user_creation, true}\E' '{anonymous_user_creation, false}'
-    patchConfig $riakCsConfigPath '\Q%%{admin_key, null}\E' '{admin_key, "'$key'"}'
-    patchConfig $riakCsConfigPath '\Q%%{admin_secret, null}\E' '{admin_secret, "'$secret'"}'
-    patchConfig $stanchionConfigPath '\Q%%{admin_key, null}\E' '{admin_key, "'$key'"}'
-    patchConfig $stanchionConfigPath '\Q%%{admin_secret, null}\E' '{admin_secret, "'$secret'"}'
+    if grep --quiet '%%{admin_key, null}' $riakCsConfigPath && grep --quiet '%%{admin_secret, null}' $riakCsConfigPath; then
+        credentials=$(curl --insecure --silent \
+            --request POST 'http://127.0.0.1:8080/riak-cs/user' \
+            --header 'Content-Type: application/json' \
+            --data '{"email":"admin@s3.amazonaws.dev", "name":"admin"}')
+
+        local key=$(echo -n $credentials | pcregrep -o '"key_id"\h*:\h*"\K([^"]*)')
+        local secret=$(echo -n $credentials | pcregrep -o '"key_secret"\h*:\h*"\K([^"]*)')
+
+        patchConfig $riakCsConfigPath '\Q{anonymous_user_creation, true}\E' '{anonymous_user_creation, false}'
+        patchConfig $riakCsConfigPath '\Q%%{admin_key, null}\E' '{admin_key, "'$key'"}'
+        patchConfig $riakCsConfigPath '\Q%%{admin_secret, null}\E' '{admin_secret, "'$secret'"}'
+        patchConfig $stanchionConfigPath '\Q%%{admin_key, null}\E' '{admin_key, "'$key'"}'
+        patchConfig $stanchionConfigPath '\Q%%{admin_secret, null}\E' '{admin_secret, "'$secret'"}'
+
+        # Create admin credentials.
+
+        cat <<-EOL
+
+			############################################################
+
+			    Riak admin credentials, make note of them, otherwise
+			    you will not be able to access your files and data.
+
+			       Key: ${key}
+			    Secret: ${secret}
+
+			############################################################
+
+		EOL
+
+    else
+        local key=$(cat $riakCsConfigPath | pcregrep -o '{admin_key,\h*"\K([^"]*)')
+        local secret=$(cat $riakCsConfigPath | pcregrep -o '{admin_secret,\h*"\K([^"]*)')
+
+        cat <<-EOL
+
+			############################################################
+
+			    Admin user is already setup, you can view credentials
+			    at the beginning of this log.
+
+			############################################################
+
+		EOL
+    fi
+
+    # We still must export those two for creating buckets, which requires credentials for authentication.
+
+    riak_cs_admin_key=$key
+    riak_cs_admin_secret=$secret
 }
+
+function riak_cs_create_buckets(){
+
+    # Create buckets if the $RIAK_CS_BUCKETS variable is defined.
+
+    if [ -v RIAK_CS_BUCKETS ]; then
+        echo "Creating Riak CS buckets."
+
+        IFS=$','; for bucket in $RIAK_CS_BUCKETS; do
+            riak_cs_create_bucket $riak_cs_admin_key $riak_cs_admin_secret $bucket
+        done
+    fi
+}
+
+# All services are stopped. Start them first.
 
 basho_service_start 'riak' 'Riak'
 basho_service_start 'stanchion' 'Stanchion'
 basho_service_start 'riak-cs' 'Riak CS'
 
-credentials=$(curl -ks \
-    -XPOST 'http://127.0.0.1:8080/riak-cs/user' \
-    -H 'Content-Type: application/json' \
-    --data '{"email":"admin@s3.amazonaws.dev", "name":"admin"}')
+# Then create admin user and specified buckets.
 
-key=$(echo -n $credentials | pcregrep -o '"key_id"\h*:\h*"\K([^"]*)')
-secret=$(echo -n $credentials | pcregrep -o '"key_secret"\h*:\h*"\K([^"]*)')
-
-riak_cs_update_admin $key $secret
-
-# Create admin credentials.
-
-cat <<-EOL
-
-	############################################################
-
-	    Riak admin credentials, make note of them, otherwise
-	    you will not be able to access your files and data.
-
-	       Key: ${key}
-	    Secret: ${secret}
-
-	############################################################
-
-EOL
-
-# Create buckets if the $RIAK_CS_BUCKETS variable is defined.
-
-if [ -v RIAK_CS_BUCKETS ]; then
-    echo "Creating Riak CS buckets."
-
-    IFS=$','; for bucket in $RIAK_CS_BUCKETS; do
-        riak_cs_bucket_create $key $secret $bucket
-    done
-fi
+riak_cs_create_admin
+riak_cs_create_buckets

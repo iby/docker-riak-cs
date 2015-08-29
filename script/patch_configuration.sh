@@ -7,6 +7,9 @@ function riak_patch_config(){
     echo -n 'Updating Riak configuration…'
     local advancedConfigPath='/etc/riak/advanced.config'
 
+    # Expose the necessary Riak CS modules to Riak and instruct Riak to use the custom backend provided by Riak CS. Set
+    # the `allow_mult` parameter to `true` to enable Riak to create siblings, which is necessary for Riak CS to function.
+
     cat <<-EOL > $advancedConfigPath
 		[
 		    {riak_kv, [
@@ -38,7 +41,10 @@ function riak_cs_patch_config(){
     echo -n 'Updating Riak-CS configuration…'
     local advancedConfigPath='/etc/riak-cs/advanced.config'
 
-    # fixme: ssl currently doesn't work, check back on http://git.io/RxYPrw and update SSL config and user creation URL…
+    # Must create an admin user to use Riak CS, also create commented placeholders for key and secret, we'll update them
+    # later.
+
+    # Fixme: ssl currently doesn't work, check back on http://git.io/RxYPrw and update SSL config and user creation URL…
 
     cat <<-EOL > $advancedConfigPath
 		[

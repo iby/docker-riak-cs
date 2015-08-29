@@ -12,7 +12,7 @@ Pull or build the image yourself and run it. When the container gets started it 
 
 ```sh
 # Build
-docker build --tag 'ianbytchek/riak-cs' .
+docker build -t 'ianbytchek/riak-cs' .
 
 # Or pull
 docker pull 'ianbytchek/riak-cs'
