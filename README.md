@@ -23,7 +23,7 @@ docker run -dP -e 'RIAK_CS_BUCKETS=foo,bar,baz' --name 'riak-cs' ianbytchek/riak
 
 ## Proxy
 
-Riak CS should also be run behind a proxy, this is recommended by Basho and gives certain advantages, such as detailed DNS configuration and url rewriting. Besides Riak doesn't play well with [SHA-256](https://github.com/basho/riak_cs/issues/1019) and [SSL overall](https://github.com/basho/riak_cs/issues/1025#issuecomment-64447329), which will eventually be fixed, but until then you are better off with SSL termination. Below is a HAProxy config that you can use along with [ianbytchek/docker-haproxy](https://github.com/ianbytchek/docker-haproxy) to get everything working.
+Riak CS should be run behind a proxy, its recommended by Basho and gives certain advantages, such as granular DNS configuration and url rewriting. Besides, Riak doesn't play well with [SHA-256](https://github.com/basho/riak_cs/issues/1019) and [SSL overall](https://github.com/basho/riak_cs/issues/1025#issuecomment-64447329), which will eventually be fixed, but until then you are better off with SSL termination. Below is a HAProxy config that you can use along with [ianbytchek/docker-haproxy](https://github.com/ianbytchek/docker-haproxy) to get everything working.
 
 ```haproxy
 # Make sure to replace <PRIVATE_KEY> with the actual path to relevant ssl key
@@ -50,6 +50,12 @@ backend riak_cs
     server node01 <RIAK_CS_IP_PORT>
 ```
 
+## Scripts
+
+All image and container business is done in individual scripts instead of using docker file for all of that. During the build we run `build.sh` which runs scripts that install dependencies and patch configuration, while `entrypoint.sh` only configures the application when the container starts.
+
+<div align="center"><img src="./documentation/asset/scripts.png"></div>
+
 ## Issues
 
 ### AWS access key id does not exist
@@ -60,15 +66,26 @@ There is a known [issue](https://github.com/basho/riak_cs/issues/1048) when the 
 
 If you explicitly specify the AWS region Riak CS may freak out as described in [this](https://github.com/basho/riak_cs/issues/1023) issue. It doesn't happen to all regions and probably can be fixed via DNS configuration.
 
+### Request time difference is too large
+
+Sometimes everything stops working with `The difference between the request time and the current time is too large.` message. Apparently this is boot2docker specific issue, can be cured with this:
+
+```sh
+docker-machine ssh default
+sudo killall -9 ntpd
+sudo ntpclient -s -h pool.ntp.org
+sudo ntpd -p pool.ntp.org
+```
+
 ## Bonus
 
-```
+```sh
 # Connect to an existing container.
-docker exec -i -t riak-cs bash
+docker exec -it 'riak-cs' bash
 
 # Remove exited containers.
 docker ps -a | grep 'Exited' | awk '{print $1}' | xargs docker rm
 
 # Remove intermediary and unused images.
-docker rmi $(docker images -aq -f "dangling=true")
+docker rmi $(docker images -aq -f 'dangling=true')
 ```
