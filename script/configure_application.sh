@@ -101,6 +101,19 @@ function basho_service_stop() {
     echo " OK!"
 }
 
+#
+# @param $1 Command name.
+# @param $2 Service name.
+#
+function basho_service_restart() {
+    commandName=$1
+    serviceName=$2
+
+    echo -n "Restarting ${serviceName}…"
+    $commandName restart > /dev/null
+    echo " OK!"
+}
+
 function riak_cs_create_admin(){
     local riakCsConfigPath='/etc/riak-cs/advanced.config'
     local stanchionConfigPath='/etc/stanchion/advanced.config'
@@ -126,8 +139,9 @@ function riak_cs_create_admin(){
 
 			############################################################
 
-			    Riak admin credentials, make note of them, otherwise
-			    you will not be able to access your files and data.
+			    Riak admin credentials, make note of them, otherwise you
+			    will not be able to access your files and data. Riak
+			    services will be restarted to take effect.
 
 			       Key: ${key}
 			    Secret: ${secret}
@@ -136,6 +150,9 @@ function riak_cs_create_admin(){
 
 		EOL
 
+        basho_service_restart 'riak' 'Riak'
+        basho_service_restart 'stanchion' 'Stanchion'
+        basho_service_restart 'riak-cs' 'Riak CS'
     else
         local key=$(cat $riakCsConfigPath | pcregrep -o '{admin_key,\h*"\K([^"]*)')
         local secret=$(cat $riakCsConfigPath | pcregrep -o '{admin_secret,\h*"\K([^"]*)')
