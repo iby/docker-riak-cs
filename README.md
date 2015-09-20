@@ -70,11 +70,16 @@ If you explicitly specify the AWS region Riak CS may freak out as described in [
 
 Sometimes everything stops working with `The difference between the request time and the current time is too large.` message. Apparently this is boot2docker specific issue, can be cured with this:
 
-```sh
-docker-machine ssh default
-sudo killall -9 ntpd
-sudo ntpclient -s -h pool.ntp.org
-sudo ntpd -p pool.ntp.org
+```sh#
+!/usr/bin/env bash
+
+while true; do
+    MACHINE='default'
+    NTP_SERVER='pool.ntp.org'
+
+    docker-machine ssh "${MACHINE}" "sudo ntpclient -s -h ${NTP_SERVER}"
+    sleep 60
+done
 ```
 
 ## Bonus
