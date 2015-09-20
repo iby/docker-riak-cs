@@ -5,8 +5,9 @@ machine:
 test:
   override:
     - docker build -t ianbytchek/riak-cs .
-    - docker run -d -p 8080:8080 ianbytchek/riak-cs; sleep 20
+    - docker run -d -e 'RIAK_CS_BUCKETS=foo,bar,baz' --name 'riak-cs' -p 8080:8080 ianbytchek/riak-cs; sleep 20
     - curl --retry 10 --retry-delay 5 -v http://localhost:8080
+    - docker logs riak-cs
 
 deployment:
   hub:
