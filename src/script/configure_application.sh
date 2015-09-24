@@ -119,13 +119,28 @@ function riak_cs_create_admin(){
     local stanchionConfigPath='/etc/stanchion/advanced.config'
 
     if grep --quiet '%%{admin_key, null}' $riakCsConfigPath && grep --quiet '%%{admin_secret, null}' $riakCsConfigPath; then
-        credentials=$(curl --insecure --silent \
-            --request POST 'http://127.0.0.1:8080/riak-cs/user' \
+
+        # Because we call this right after starting riak services, this sometimes fails with 500 status,
+        # probably because it needs some time to warm up. This allows seral attempts with delays.
+
+        credentials=$(curl \
+            --connect-timeout 5 \
+            --fail \
             --header 'Content-Type: application/json' \
+            --insecure \
+            --request POST 'http://127.0.0.1:8080/riak-cs/user' \
+            --retry 10 \
+            --retry-delay 5 \
+            --silent \
             --data '{"email":"admin@s3.amazonaws.dev", "name":"admin"}')
 
         local key=$(echo -n $credentials | pcregrep -o '"key_id"\h*:\h*"\K([^"]*)')
         local secret=$(echo -n $credentials | pcregrep -o '"key_secret"\h*:\h*"\K([^"]*)')
+
+        if [ -z "$key" ] || [ -z "$secret" ]; then
+            echo "Could not create admin user and retrieve credentiels…"
+            exit 1
+        fi
 
         patchConfig $riakCsConfigPath '\Q{anonymous_user_creation, true}\E' '{anonymous_user_creation, false}'
         patchConfig $riakCsConfigPath '\Q%%{admin_key, null}\E' '{admin_key, "'$key'"}'
