@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 
 #
+# Shared functions that are used by other scripts.
+#
+
+#
 # Uses perl regular expressions to replace the given pattern with a substitution.
+#
+# ```
+# patchConfig foo.config '\Qbar\E' 'baz'
+# ```
 #
 # @param $1 Configuration file path.
 # @param $2 PCRE regular expression pattern.

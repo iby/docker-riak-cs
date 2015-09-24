@@ -2,19 +2,16 @@ machine:
   services:
     - docker
 
+dependencies:
+  override:
+    - ./build/ci/script/build.sh
+
 test:
   override:
-    - docker build -t ianbytchek/riak-cs .
-    - docker run -d -e 'RIAK_CS_BUCKETS=foo,bar,baz' --name 'riak-cs' -p 8080:8080 ianbytchek/riak-cs; sleep 20
-    - curl --retry 10 --retry-delay 5 -v http://localhost:8080
-    - docker logs riak-cs
+    - ./build/ci/script/test.sh
 
 deployment:
   hub:
     branch: master
     commands:
-
-      # Authenticate with docker and push the latest image.
-
-      - docker login -e $DOCKER_HUB_EMAIL -u $DOCKER_HUB_USER -p $DOCKER_HUB_PASSWORD
-      - docker push ianbytchek/riak-cs
+      - ./build/ci/script/deploy.sh

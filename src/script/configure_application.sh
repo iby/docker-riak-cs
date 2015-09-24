@@ -194,6 +194,8 @@ basho_service_start 'riak' 'Riak'
 basho_service_start 'stanchion' 'Stanchion'
 basho_service_start 'riak-cs' 'Riak CS'
 
+# Apparently sometimes services need extra time to warm up.
+
 # Then create admin user and specified buckets.
 
 riak_cs_create_admin
