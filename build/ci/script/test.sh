@@ -29,18 +29,54 @@ echo -n 'Checking if riak-cs container running…'
 if [ $(docker inspect --format '{{ .State.Running }}' riak-cs) == 'true' ]; then
 echo ' OK!'; else echo ' Fail!'; exit 1; fi;
 
+access_key=$(echo "$LOGS" | grep -oP '^\h*Key:\h*\K(.{20})$' || echo '')
+secret_key=$(echo "$LOGS" | grep -oP '^\h*Secret:\h*\K(.{40})$' || echo '')
+
 echo -n 'Checking if container logs contain admin credentials…'
-if echo "$LOGS" | grep -q '^[[:blank:]]*Key: .\{20\}$' && echo "$LOGS" | grep -q '^[[:blank:]]*Secret: .\{40\}$'; then
+if [ -n "$access_key" ] && [ -n "$secret_key" ]; then
 echo ' OK!'; else echo ' Fail!'; exit 1; fi;
 
 echo -n 'Checking if container logs contain foo bucket success status…'
-if echo "$LOGS" | grep -q '^foo… OK!$'; then
+if echo "$LOGS" | grep -Pq '^foo… OK!$'; then
 echo ' OK!'; else echo ' Fail!'; exit 1; fi;
 
 echo -n 'Checking if container logs contain bar bucket success status…'
-if echo "$LOGS" | grep -q '^bar… OK!$'; then
+if echo "$LOGS" | grep -Pq '^bar… OK!$'; then
 echo ' OK!'; else echo ' Fail!'; exit 1; fi;
 
 echo -n 'Checking if container logs contain baz bucket success status…'
-if echo "$LOGS" | grep -q '^baz… OK!$'; then
+if echo "$LOGS" | grep -Pq '^baz… OK!$'; then
 echo ' OK!'; else echo ' Fail!'; exit 1; fi;
+
+# Now lets use s3cmd to actually connect to our riak cs service and run some tests on it.
+
+cat <<-EOL > configuration
+	[default]
+	access_key = $access_key
+	host_base = s3.amazonaws.dev
+	host_bucket = %(bucket)s.s3.amazonaws.dev
+	proxy_host = 127.0.0.1
+	proxy_port = 8080
+	secret_key = $secret_key
+	signature_v2 = True
+EOL
+
+echo 'Listing buckets with s3cmd:'
+s3cmd --config 'configuration' ls
+
+echo 'Putting file into foo bucket and list it with s3cmd:'
+touch 'file'
+s3cmd --config 'configuration' put 'file' 's3://foo'
+s3cmd --config 'configuration' ls 's3://foo'
+
+echo 'Copying file from foo bucket into bar bucket and list it with s3cmd:'
+s3cmd --config 'configuration' cp 's3://foo/file' 's3://bar/file'
+s3cmd --config 'configuration' ls 's3://bar'
+
+echo 'Remove file from bar bucket and list it with s3cmd:'
+s3cmd --config 'configuration' rm 's3://bar/file'
+s3cmd --config 'configuration' ls 's3://bar'
+
+echo 'Remove bar bucket and list all buckets with s3cmd:'
+s3cmd --config 'configuration' rb 's3://bar'
+s3cmd --config 'configuration' ls
