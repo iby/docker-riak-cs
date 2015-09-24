@@ -74,7 +74,7 @@ s3cmd --config 'configuration' cp 's3://foo/file' 's3://bar/file'
 s3cmd --config 'configuration' ls 's3://bar'
 
 echo 'Remove file from bar bucket and list it with s3cmd:'
-s3cmd --config 'configuration' rm 's3://bar/file'
+s3cmd --config 'configuration' del 's3://bar/file'
 s3cmd --config 'configuration' ls 's3://bar'
 
 echo 'Remove bar bucket and list all buckets with s3cmd:'
