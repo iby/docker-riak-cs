@@ -18,12 +18,18 @@ echo ' OK!'
 
 sleep 45
 
+
 # Print docker logs and check that we have credentials and buckets succesfully setup.
 
 LOGS=$(docker logs riak-cs)
 echo "$LOGS"
 
-if ! echo "$LOGS" | grep -q '^[[:blank:]]*Key: *.\{20\}$' || ! echo "$LOGS" | grep -q '^[[:blank:]]*Secret: *.\{40\}$'; then
+# First check that container is running.
+
+if [ $(docker inspect --format '{{ .State.Running }}' riak-cs) != 'true' ]; then
+    echo "The container is not even running, things are THAT BAD!"
+    exit 1
+elif ! echo "$LOGS" | grep -q '^[[:blank:]]*Key: *.\{20\}$' || ! echo "$LOGS" | grep -q '^[[:blank:]]*Secret: *.\{40\}$'; then
     echo "Failed asserting that container logs reported admin credentials."
     exit 1
 elif ! echo "$LOGS" | grep -q '^foo… OK!$'; then
