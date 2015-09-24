@@ -13,3 +13,4 @@ docker login \
     --username $DOCKER_HUB_USER
 
 docker push ianbytchek/riak-cs
+docker logout
