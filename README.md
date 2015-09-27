@@ -18,7 +18,22 @@ docker build -t 'ianbytchek/riak-cs' .
 docker pull 'ianbytchek/riak-cs'
  
 # Run and create three buckets
-docker run -dP -e 'RIAK_CS_BUCKETS=foo,bar,baz' --name 'riak-cs' ianbytchek/riak-cs
+docker run -dP -e 'RIAK_CS_BUCKETS=foo,bar,baz' --name 'riak-cs' -p '8080:8080' ianbytchek/riak-cs
+
+# Usage for s3cmd
+
+cat <<EOF >~/.s3cfg.riak_cs
+[default]
+access_key = __YOUR_ACCESS_KEY__
+host_base = s3.amazonaws.dev
+host_bucket = %(bucket)s.s3.amazonaws.dev
+proxy_host = 127.0.0.1
+proxy_port = 8080
+secret_key = __YOUR_SECRET_KEY__
+signature_v2 = True
+EOF
+
+s3cmd -c ~/.s3cfg.riak_cs ls  # Retry a couple of seconds later if you get ERROR: [Errno 104] Connection reset by peer
 ```
 
 ## Proxy
