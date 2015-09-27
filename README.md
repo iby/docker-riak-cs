@@ -20,7 +20,7 @@ docker pull 'ianbytchek/riak-cs'
 # Run and create three buckets
 docker run -dP -e 'RIAK_CS_BUCKETS=foo,bar,baz' --name 'riak-cs' -p '8080:8080' ianbytchek/riak-cs
 
-# Usage for [s3cmd](http://s3tools.org/s3cmd)
+# Usage for s3cmd
 
 cat <<EOF >~/.s3cfg.riak_cs
 [default]
