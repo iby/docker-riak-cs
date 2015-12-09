@@ -30,12 +30,14 @@ function riak_cs_create_bucket(){
     local date=$(date -R)
     local signature="$(printf "GET\n\n\n${date}\n/${bucket}/" | openssl sha1 -binary -hmac "${secret}" | base64)"
 
-    local status_code=$(curl --insecure --silent \
-        --request GET \
+    local status_code=$(curl \
         --header "Authorization: AWS ${key}:${signature}" \
         --header "Date: ${date}" \
         --header "Host: ${bucket}.s3.amazonaws.dev" \
+        --insecure \
         --output /dev/null \
+        --request GET \
+        --silent \
         --write-out '%{http_code}' \
         "http://127.0.0.1:8080")
 
@@ -97,8 +99,7 @@ function basho_service_stop() {
     serviceName=$2
 
     echo -n "Stopping ${serviceName}…"
-    $commandName stop > /dev/null
-    echo " OK!"
+    $commandName stop > /dev/null && echo " OK!"
 }
 
 #
@@ -110,8 +111,7 @@ function basho_service_restart() {
     serviceName=$2
 
     echo -n "Restarting ${serviceName}…"
-    $commandName restart > /dev/null
-    echo " OK!"
+    $commandName restart > /dev/null && echo " OK!"
 }
 
 function riak_cs_create_admin(){
@@ -202,6 +202,11 @@ function riak_cs_create_buckets(){
         done
     fi
 }
+
+echo -n "Update data permissions in case they are mounted as volumes…"
+chown -R riak:riak /var/lib/riak
+chmod 755 /var/lib/riak
+echo " OK!"
 
 # All services are stopped. Start them first.
 
