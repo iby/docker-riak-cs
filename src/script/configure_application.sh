@@ -137,7 +137,8 @@ function riak_cs_create_admin(){
         local secret=$(echo -n $credentials | pcregrep -o '"key_secret"\h*:\h*"\K([^"]*)')
 
         if [ -z "$key" ] || [ -z "$secret" ]; then
-            echo "Could not create admin user and retrieve credentials…"
+            echo "Could not create admin user and retrieve credentials. Curl got response:"
+            echo "{$credentials}"
             exit 1
         fi
 
