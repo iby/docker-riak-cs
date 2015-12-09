@@ -3,7 +3,6 @@
 # Make sure we are in the same directory as the script and run relevant scripts in that order.
 
 cd $(dirname $0)
-. functions.sh
 
 #
 # @param $1 Riak CS admin key.
@@ -121,7 +120,7 @@ function riak_cs_create_admin(){
     if grep --quiet '%%{admin_key, null}' $riakCsConfigPath && grep --quiet '%%{admin_secret, null}' $riakCsConfigPath; then
 
         # Because we call this right after starting riak services, this sometimes fails with 500 status,
-        # probably because it needs some time to warm up. This allows seral attempts with delays.
+        # probably because it needs some time to warm up. This allows several attempts with delays.
 
         credentials=$(curl \
             --connect-timeout 5 \
@@ -138,7 +137,7 @@ function riak_cs_create_admin(){
         local secret=$(echo -n $credentials | pcregrep -o '"key_secret"\h*:\h*"\K([^"]*)')
 
         if [ -z "$key" ] || [ -z "$secret" ]; then
-            echo "Could not create admin user and retrieve credentiels…"
+            echo "Could not create admin user and retrieve credentials…"
             exit 1
         fi
 

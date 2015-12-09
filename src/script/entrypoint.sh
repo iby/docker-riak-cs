@@ -5,9 +5,10 @@
 cd $(dirname $0)
 
 if [ "$1" = 'riak' ]; then
-    . functions.sh
-    . configuration.sh
-    . configure_application.sh
+    . '/entrypoint/script/functions.sh'
+    . '/entrypoint/script/configure_application.sh'
 
-    supervisord --nodaemon --configuration='../configuration/supervisord.conf'
+    supervisord --nodaemon --configuration='/entrypoint/configuration/supervisord.conf'
+else
+    exec "${@}"
 fi

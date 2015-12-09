@@ -7,5 +7,5 @@ RUN /docker/script/build.sh
 VOLUME /var/lib/riak
 EXPOSE 8080
 
-ENTRYPOINT ["/docker/script/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["riak"]

@@ -9,9 +9,20 @@ cd $(dirname $0)
 . install_dependencies.sh
 . patch_configuration.sh
 
-echo 'Cleaning up container.'
+echo -n 'Moving entrypoint scripts…'
+mkdir --parent '/entrypoint/configuration'
+mkdir --parent '/entrypoint/script'
+mv './entrypoint.sh' '/'
+mv '../configuration/'* '/entrypoint/configuration'
+mv './configure_application.sh' '/entrypoint/script'
+mv './functions.sh' '/entrypoint/script'
+echo ' OK!'
 
-rm -rf /tmp/*
-rm -rf /var/tmp/*
+echo -n 'Cleaning up container.'
+rm -rf \
+    '/docker' \
+    '/tmp/'* \
+    '/var/tmp/'*
+echo ' OK!'
 
 echo 'Bye-bye!'
