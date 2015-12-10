@@ -29,8 +29,8 @@ echo -n 'Checking if riak-cs container running…'
 if [ $(docker inspect --format '{{ .State.Running }}' riak-cs) == 'true' ]; then
 echo ' OK!'; else echo ' Fail!'; exit 1; fi;
 
-access_key=$(echo "$LOGS" | grep -oP '^\h*Key:\h*\K(.{20})$' || echo '')
-secret_key=$(echo "$LOGS" | grep -oP '^\h*Secret:\h*\K(.{40})$' || echo '')
+access_key=$(echo "$LOGS" | grep -oP '^\h*Access key:\h*\K(.{20})$' || echo '')
+secret_key=$(echo "$LOGS" | grep -oP '^\h*Secret key:\h*\K(.{40})$' || echo '')
 
 echo -n 'Checking if container logs contain admin credentials…'
 if [ -n "$access_key" ] && [ -n "$secret_key" ]; then

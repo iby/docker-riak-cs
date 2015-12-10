@@ -10,8 +10,8 @@ cd $(dirname $0)
 # @param $3 Riak CS bucket to create.
 #
 function riak_cs_create_bucket(){
-    local key=$1
-    local secret=$2
+    local key_access=$1
+    local key_secret=$2
     local bucket=$3
 
     # We must use signed requests to make any calls to the service, this apparently isn't very easy. They are in great
@@ -27,10 +27,10 @@ function riak_cs_create_bucket(){
     echo -n "${bucket}…"
 
     local date=$(date -R)
-    local signature="$(printf "GET\n\n\n${date}\n/${bucket}/" | openssl sha1 -binary -hmac "${secret}" | base64)"
+    local signature="$(printf "GET\n\n\n${date}\n/${bucket}/" | openssl sha1 -binary -hmac "${key_secret}" | base64)"
 
     local status_code=$(curl \
-        --header "Authorization: AWS ${key}:${signature}" \
+        --header "Authorization: AWS ${key_access}:${signature}" \
         --header "Date: ${date}" \
         --header "Host: ${bucket}.s3.amazonaws.dev" \
         --insecure \
@@ -44,11 +44,11 @@ function riak_cs_create_bucket(){
         echo ' Already exists!'
     else
         local date=$(date -R)
-        local signature="$(printf "PUT\n\n\n${date}\n/${bucket}/" | openssl sha1 -binary -hmac "${secret}" | base64)"
+        local signature="$(printf "PUT\n\n\n${date}\n/${bucket}/" | openssl sha1 -binary -hmac "${key_secret}" | base64)"
 
         local status_code=$(curl --insecure --silent \
             --request PUT \
-            --header "Authorization: AWS ${key}:${signature}" \
+            --header "Authorization: AWS ${key_access}:${signature}" \
             --header "Date: ${date}" \
             --header "Host: ${bucket}.s3.amazonaws.dev" \
             --output /dev/null \
@@ -118,35 +118,40 @@ function riak_cs_create_admin(){
     local stanchionConfigPath='/etc/stanchion/advanced.config'
 
     if grep --quiet '%%{admin_key, null}' "${riakCsConfigPath}" && grep --quiet '%%{admin_secret, null}' "${riakCsConfigPath}"; then
+        if [ -n "${RIAK_CS_KEY_ACCESS}" ] && [ -n "${RIAK_CS_KEY_SECRET}" ]; then
+            local key_access="${RIAK_CS_KEY_ACCESS}"
+            local key_secret="${RIAK_CS_KEY_SECRET}"
+        else
 
-        # Because we call this right after starting riak services, this sometimes fails with 500 status,
-        # probably because it needs some time to warm up. This allows several attempts with delays.
+            # Because we call this right after starting riak services, this sometimes fails with 500 status,
+            # probably because it needs some time to warm up. This allows several attempts with delays.
 
-        credentials=$(curl \
-            --connect-timeout 5 \
-            --fail \
-            --header 'Content-Type: application/json' \
-            --insecure \
-            --request POST 'http://127.0.0.1:8080/riak-cs/user' \
-            --retry 10 \
-            --retry-delay 5 \
-            --silent \
-            --data '{"email":"admin@s3.amazonaws.dev", "name":"admin"}')
+            credentials=$(curl \
+                --connect-timeout 5 \
+                --fail \
+                --header 'Content-Type: application/json' \
+                --insecure \
+                --request POST 'http://127.0.0.1:8080/riak-cs/user' \
+                --retry 10 \
+                --retry-delay 5 \
+                --silent \
+                --data '{"email":"admin@s3.amazonaws.dev", "name":"admin"}')
 
-        local key=$(echo -n $credentials | pcregrep -o '"key_id"\h*:\h*"\K([^"]*)')
-        local secret=$(echo -n $credentials | pcregrep -o '"key_secret"\h*:\h*"\K([^"]*)')
+            local key_access=$(echo -n $credentials | pcregrep -o '"key_id"\h*:\h*"\K([^"]*)')
+            local key_secret=$(echo -n $credentials | pcregrep -o '"key_secret"\h*:\h*"\K([^"]*)')
 
-        if [ -z "$key" ] || [ -z "$secret" ]; then
-            echo "Could not create admin user and retrieve credentials. Curl got response:"
-            echo "${credentials}"
-            exit 1
+            if [ -z "${key_access}" ] || [ -z "${key_secret}" ]; then
+                echo "Could not create admin user and retrieve credentials. Curl got response:"
+                echo "${credentials}"
+                exit 1
+            fi
         fi
 
         patchConfig "${riakCsConfigPath}" '\Q{anonymous_user_creation, true}\E' '{anonymous_user_creation, false}'
-        patchConfig "${riakCsConfigPath}" '\Q%%{admin_key, null}\E' '{admin_key, "'"${key}"'"}'
-        patchConfig "${riakCsConfigPath}" '\Q%%{admin_secret, null}\E' '{admin_secret, "'"${secret}"'"}'
-        patchConfig "${stanchionConfigPath}" '\Q%%{admin_key, null}\E' '{admin_key, "'"${key}"'"}'
-        patchConfig "${stanchionConfigPath}" '\Q%%{admin_secret, null}\E' '{admin_secret, "'"${secret}"'"}'
+        patchConfig "${riakCsConfigPath}" '\Q%%{admin_key, null}\E' '{admin_key, "'"${key_access}"'"}'
+        patchConfig "${riakCsConfigPath}" '\Q%%{admin_secret, null}\E' '{admin_secret, "'"${key_secret}"'"}'
+        patchConfig "${stanchionConfigPath}" '\Q%%{admin_key, null}\E' '{admin_key, "'"${key_access}"'"}'
+        patchConfig "${stanchionConfigPath}" '\Q%%{admin_secret, null}\E' '{admin_secret, "'"${key_secret}"'"}'
 
         # Create admin credentials.
 
@@ -158,8 +163,8 @@ function riak_cs_create_admin(){
 			    will not be able to access your files and data. Riak
 			    services will be restarted to take effect.
 
-			       Key: ${key}
-			    Secret: ${secret}
+			    Access key: ${key_access}
+			    Secret key: ${key_secret}
 
 			############################################################
 
@@ -169,8 +174,8 @@ function riak_cs_create_admin(){
         basho_service_restart 'stanchion' 'Stanchion'
         basho_service_restart 'riak-cs' 'Riak CS'
     else
-        local key=$(cat "${riakCsConfigPath}" | pcregrep -o '{admin_key,\h*"\K([^"]*)')
-        local secret=$(cat "${riakCsConfigPath}" | pcregrep -o '{admin_secret,\h*"\K([^"]*)')
+        local key_access=$(cat "${riakCsConfigPath}" | pcregrep -o '{admin_key,\h*"\K([^"]*)')
+        local key_secret=$(cat "${riakCsConfigPath}" | pcregrep -o '{admin_secret,\h*"\K([^"]*)')
 
         cat <<-EOL
 
@@ -186,8 +191,8 @@ function riak_cs_create_admin(){
 
     # We still must export those two for creating buckets, which requires credentials for authentication.
 
-    riak_cs_admin_key="${key}"
-    riak_cs_admin_secret="${secret}"
+    riak_cs_admin_key_access="${key_access}"
+    riak_cs_admin_key_secret="${key_secret}"
 }
 
 function riak_cs_create_buckets(){
@@ -197,13 +202,13 @@ function riak_cs_create_buckets(){
     if [ -v RIAK_CS_BUCKETS ]; then
         echo "Creating Riak CS buckets."
 
-        IFS=$','; for bucket in "${RIAK_CS_BUCKETS}"; do
-            riak_cs_create_bucket "${riak_cs_admin_key}" "${riak_cs_admin_secret}" "${bucket}"
+        IFS=$','; for bucket in $RIAK_CS_BUCKETS; do
+            riak_cs_create_bucket "${riak_cs_admin_key_access}" "${riak_cs_admin_key_secret}" "${bucket}"
         done
     fi
 }
 
-echo -n "Update data permissions in case they are mounted as volumes…"
+echo -n "Update data permissions in case it's mounted as volume…"
 chown -R riak:riak /var/lib/riak
 chmod 755 /var/lib/riak
 echo " OK!"
