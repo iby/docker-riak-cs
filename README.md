@@ -18,30 +18,38 @@ docker build -t 'ianbytchek/riak-cs' .
 docker pull 'ianbytchek/riak-cs'
  
 # Run and create three buckets
-docker run -dP -e 'RIAK_CS_BUCKETS=foo,bar,baz' --name 'riak-cs' -p '8080:8080' ianbytchek/riak-cs
+docker run -dP -e 'RIAK_CS_BUCKETS=foo,bar,baz' -p '8080:8080' --name 'riak-cs' ianbytchek/riak-cs
 
 # Usage for s3cmd
 
 cat <<EOF >~/.s3cfg.riak_cs
 [default]
-access_key = __YOUR_ACCESS_KEY__
+access_key = <RIAK_CS_KEY_ACCESS>
 host_base = s3.amazonaws.dev
 host_bucket = %(bucket)s.s3.amazonaws.dev
 proxy_host = 127.0.0.1
 proxy_port = 8080
-secret_key = __YOUR_SECRET_KEY__
+secret_key = <RIAK_CS_KEY_SECRET>
 signature_v2 = True
 EOF
 
 s3cmd -c ~/.s3cfg.riak_cs ls  # Retry a couple of seconds later if you get ERROR: [Errno 104] Connection reset by peer
 ```
 
+## Configuration
+
+You can use the following environment variables to configure Riak CS instance:
+
+- `RIAK_CS_BUCKETS` – colon separated list or buckets to automatically create.
+- `RIAK_CS_KEY_ACCESS` – config's `admin_key` equivalent.
+- `RIAK_CS_KEY_SECRET` – config's `admin_secret` equivalent.
+
 ## Proxy
 
 Riak CS should be run behind a proxy, its recommended by Basho and gives certain advantages, such as granular DNS configuration and url rewriting. Besides, Riak doesn't play well with [SHA-256](https://github.com/basho/riak_cs/issues/1019) and [SSL overall](https://github.com/basho/riak_cs/issues/1025#issuecomment-64447329), which will eventually be fixed, but until then you are better off with SSL termination. Below is a HAProxy config that you can use along with [ianbytchek/docker-haproxy](https://github.com/ianbytchek/docker-haproxy) to get everything working.
 
 ```haproxy
-# Make sure to replace <PRIVATE_KEY> with the actual path to relevant ssl key
+# Make sure to replace <PRIVATE_KEY_PATH> with the actual path to relevant ssl key
 # and <RIAK_CS_IP_PORT> with the IP and port of the container.
 
 defaults
@@ -55,7 +63,7 @@ frontend http
     redirect scheme https code 301 if !{ ssl_fc }
 
 frontend https
-    bind *:443 ssl crt <PRIVATE_KEY>
+    bind *:443 ssl crt <PRIVATE_KEY_PATH>
     use_backend riak_cs
 
 backend riak_cs
