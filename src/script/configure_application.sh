@@ -74,7 +74,7 @@ function basho_service_start() {
     local maxTries=5
 
     echo -n "Starting ${serviceName}…"
-    $commandName start
+    "${commandName}" start
 
     until (riak ping | grep "pong" > /dev/null) || ((++tries >= maxTries)) ; do
         echo "Waiting for ${serviceName}…"
@@ -98,7 +98,7 @@ function basho_service_stop() {
     serviceName=$2
 
     echo -n "Stopping ${serviceName}…"
-    $commandName stop > /dev/null && echo " OK!"
+    "${commandName}" stop > /dev/null && echo " OK!"
 }
 
 #
@@ -110,14 +110,14 @@ function basho_service_restart() {
     serviceName=$2
 
     echo -n "Restarting ${serviceName}…"
-    $commandName restart > /dev/null && echo " OK!"
+    "${commandName}" restart > /dev/null && echo " OK!"
 }
 
 function riak_cs_create_admin(){
     local riakCsConfigPath='/etc/riak-cs/advanced.config'
     local stanchionConfigPath='/etc/stanchion/advanced.config'
 
-    if grep --quiet '%%{admin_key, null}' $riakCsConfigPath && grep --quiet '%%{admin_secret, null}' $riakCsConfigPath; then
+    if grep --quiet '%%{admin_key, null}' "${riakCsConfigPath}" && grep --quiet '%%{admin_secret, null}' "${riakCsConfigPath}"; then
 
         # Because we call this right after starting riak services, this sometimes fails with 500 status,
         # probably because it needs some time to warm up. This allows several attempts with delays.
@@ -138,15 +138,15 @@ function riak_cs_create_admin(){
 
         if [ -z "$key" ] || [ -z "$secret" ]; then
             echo "Could not create admin user and retrieve credentials. Curl got response:"
-            echo "{$credentials}"
+            echo "${credentials}"
             exit 1
         fi
 
-        patchConfig $riakCsConfigPath '\Q{anonymous_user_creation, true}\E' '{anonymous_user_creation, false}'
-        patchConfig $riakCsConfigPath '\Q%%{admin_key, null}\E' '{admin_key, "'$key'"}'
-        patchConfig $riakCsConfigPath '\Q%%{admin_secret, null}\E' '{admin_secret, "'$secret'"}'
-        patchConfig $stanchionConfigPath '\Q%%{admin_key, null}\E' '{admin_key, "'$key'"}'
-        patchConfig $stanchionConfigPath '\Q%%{admin_secret, null}\E' '{admin_secret, "'$secret'"}'
+        patchConfig "${riakCsConfigPath}" '\Q{anonymous_user_creation, true}\E' '{anonymous_user_creation, false}'
+        patchConfig "${riakCsConfigPath}" '\Q%%{admin_key, null}\E' '{admin_key, "'"${key}"'"}'
+        patchConfig "${riakCsConfigPath}" '\Q%%{admin_secret, null}\E' '{admin_secret, "'"${secret}"'"}'
+        patchConfig "${stanchionConfigPath}" '\Q%%{admin_key, null}\E' '{admin_key, "'"${key}"'"}'
+        patchConfig "${stanchionConfigPath}" '\Q%%{admin_secret, null}\E' '{admin_secret, "'"${secret}"'"}'
 
         # Create admin credentials.
 
@@ -169,8 +169,8 @@ function riak_cs_create_admin(){
         basho_service_restart 'stanchion' 'Stanchion'
         basho_service_restart 'riak-cs' 'Riak CS'
     else
-        local key=$(cat $riakCsConfigPath | pcregrep -o '{admin_key,\h*"\K([^"]*)')
-        local secret=$(cat $riakCsConfigPath | pcregrep -o '{admin_secret,\h*"\K([^"]*)')
+        local key=$(cat "${riakCsConfigPath}" | pcregrep -o '{admin_key,\h*"\K([^"]*)')
+        local secret=$(cat "${riakCsConfigPath}" | pcregrep -o '{admin_secret,\h*"\K([^"]*)')
 
         cat <<-EOL
 
@@ -186,8 +186,8 @@ function riak_cs_create_admin(){
 
     # We still must export those two for creating buckets, which requires credentials for authentication.
 
-    riak_cs_admin_key=$key
-    riak_cs_admin_secret=$secret
+    riak_cs_admin_key="${key}"
+    riak_cs_admin_secret="${secret}"
 }
 
 function riak_cs_create_buckets(){
@@ -197,8 +197,8 @@ function riak_cs_create_buckets(){
     if [ -v RIAK_CS_BUCKETS ]; then
         echo "Creating Riak CS buckets."
 
-        IFS=$','; for bucket in $RIAK_CS_BUCKETS; do
-            riak_cs_create_bucket $riak_cs_admin_key $riak_cs_admin_secret $bucket
+        IFS=$','; for bucket in "${RIAK_CS_BUCKETS}"; do
+            riak_cs_create_bucket "${riak_cs_admin_key}" "${riak_cs_admin_secret}" "${bucket}"
         done
     fi
 }
