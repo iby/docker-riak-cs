@@ -11,16 +11,23 @@
 Pull or build the image yourself and run it. When the container gets started it will setup the Riak admin and show you the credentials. Will also create optionally provided buckets.
 
 ```sh
-# Build
-docker build -t 'ianbytchek/riak-cs' .
 
-# Or pull
+# Pull…
 docker pull 'ianbytchek/riak-cs'
- 
-# Run and create three buckets
-docker run -dP -e 'RIAK_CS_BUCKETS=foo,bar,baz' -p '8080:8080' --name 'riak-cs' ianbytchek/riak-cs
 
-# Usage for s3cmd
+# Or build…
+docker build --tag 'ianbytchek/riak-cs' './src'
+ 
+# Run and create three buckets.
+docker run --detach \
+    --env 'RIAK_CS_BUCKETS=foo,bar,baz' \
+    --publish '8080:8080' \
+    --name 'riak-cs' \
+    ianbytchek/riak-cs
+
+# Configure s3cmd, `RIAK_CS_KEY_ACCESS` and `RIAK_CS_KEY_SECRET` are printed to
+# stdout, run `docker logs -f 'riak-cs'` to see what they are. Also make sure to
+# use the correct `proxy_host` if you are on Mac / running docker inside a vm.
 
 cat <<EOF >~/.s3cfg.riak_cs
 [default]
@@ -33,30 +40,34 @@ secret_key = <RIAK_CS_KEY_SECRET>
 signature_v2 = True
 EOF
 
-s3cmd -c ~/.s3cfg.riak_cs ls  # Retry a couple of seconds later if you get ERROR: [Errno 104] Connection reset by peer
+# Retry a few times with 10 second interval if getting `ERROR: [Errno 104]
+# Connection reset by peer`.
+
+s3cmd -c ~/.s3cfg.riak_cs ls
 ```
 
 ## Configuration
 
-You can use the following environment variables to configure Riak CS instance:
+Use the following environment variables to configure Riak CS instance:
 
 - `RIAK_CS_BUCKETS` – colon separated list or buckets to automatically create.
-- `RIAK_CS_KEY_ACCESS` – config's `admin_key` equivalent.
-- `RIAK_CS_KEY_SECRET` – config's `admin_secret` equivalent.
+- `RIAK_CS_KEY_ACCESS`, `RIAK_CS_KEY_SECRET` – config's equivalent of `admin_key` and `admin_secret` respectively.
+
+   > Only use this with a mounted data volume when your data is already created and there is already a user with this credentials. Otherwise the default admin user will not be created and you'll get an error.
 
 ## Proxy
 
-Riak CS should be run behind a proxy, its recommended by Basho and gives certain advantages, such as granular DNS configuration and url rewriting. Besides, Riak doesn't play well with [SHA-256](https://github.com/basho/riak_cs/issues/1019) and [SSL overall](https://github.com/basho/riak_cs/issues/1025#issuecomment-64447329), which will eventually be fixed, but until then you are better off with SSL termination. Below is a HAProxy config that you can use along with [ianbytchek/docker-haproxy](https://github.com/ianbytchek/docker-haproxy) to get everything working.
+Riak CS should be run behind a proxy, its recommended by Basho and gives certain advantages, such as granular DNS configuration and url rewriting. Besides, Riak doesn't play well with [SHA-256](https://github.com/basho/riak_cs/issues/1019) and [SSL overall](https://github.com/basho/riak_cs/issues/1025#issuecomment-64447329), which will eventually be fixed, but until then you are better off with SSL termination. Below is a HAProxy config that can be used along with [ianbytchek/docker-haproxy](https://github.com/ianbytchek/docker-haproxy).
 
 ```haproxy
 # Make sure to replace <PRIVATE_KEY_PATH> with the actual path to relevant ssl key
 # and <RIAK_CS_IP_PORT> with the IP and port of the container.
 
 defaults
-    mode                    http
-    timeout connect         10s
-    timeout client          1m
-    timeout server          1m
+    mode http
+    timeout connect 10s
+    timeout client 1m
+    timeout server 1m
 
 frontend http
     bind *:80
@@ -75,7 +86,7 @@ backend riak_cs
 
 ## Scripts
 
-All image and container business is done in individual scripts instead of using docker file for all of that. During the build we run `build.sh` which runs scripts that install dependencies and patch configuration, while `entrypoint.sh` only configures the application when the container starts.
+All image and container business is done in individual scripts instead of using docker file for all of that. During the build we run `build.sh`, it will run scripts that install dependencies and patch configuration, while `entrypoint.sh` only configures the application when the container starts.
 
 <div align="center"><img src="./documentation/asset/scripts.png"></div>
 
@@ -103,17 +114,4 @@ while true; do
     docker-machine ssh "${MACHINE}" "sudo ntpclient -s -h ${NTP_SERVER}"
     sleep 60
 done
-```
-
-## Bonus
-
-```sh
-# Connect to an existing container.
-docker exec -it 'riak-cs' bash
-
-# Remove exited containers.
-docker ps -a | grep 'Exited' | awk '{print $1}' | xargs docker rm
-
-# Remove intermediary and unused images.
-docker rmi $(docker images -aq -f 'dangling=true')
 ```

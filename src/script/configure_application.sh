@@ -67,7 +67,7 @@ function riak_cs_create_bucket(){
 # @param $1 Command name.
 # @param $1 Service name.
 #
-function basho_service_start() {
+function basho_service_start(){
     local commandName=$1
     local serviceName=$2
     local tries=0
@@ -93,7 +93,7 @@ function basho_service_start() {
 # @param $1 Command name.
 # @param $2 Service name.
 #
-function basho_service_stop() {
+function basho_service_stop(){
     commandName=$1
     serviceName=$2
 
@@ -105,7 +105,7 @@ function basho_service_stop() {
 # @param $1 Command name.
 # @param $2 Service name.
 #
-function basho_service_restart() {
+function basho_service_restart(){
     commandName=$1
     serviceName=$2
 
