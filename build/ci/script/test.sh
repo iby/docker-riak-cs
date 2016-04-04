@@ -3,7 +3,7 @@
 # Setup error trapping.
 
 set -e
-trap 'echo "Error occured on line $LINENO." && exit 1' ERR
+trap 'echo "Error occurred on line $LINENO." && exit 1' ERR
 
 # Run riak cs and sleep for 30 seconds allowing it to initialise.
 
@@ -18,7 +18,7 @@ echo ' OK!'
 
 sleep 45
 
-# Print docker logs and check that we have credentials and buckets succesfully setup.
+# Print docker logs and check that we have credentials and buckets successfully setup.
 
 LOGS=$(docker logs riak-cs)
 echo "$LOGS"

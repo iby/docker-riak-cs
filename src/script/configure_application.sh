@@ -76,7 +76,7 @@ function basho_service_start(){
     echo -n "Starting ${serviceName}…"
     "${commandName}" start
 
-    until (riak ping | grep "pong" > /dev/null) || ((++tries >= maxTries)) ; do
+    until ("${commandName}" ping | grep "pong" > /dev/null) || ((++tries >= maxTries)) ; do
         echo "Waiting for ${serviceName}…"
         sleep 1
     done
