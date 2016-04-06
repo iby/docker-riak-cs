@@ -31,8 +31,7 @@ echo "Downloading Riak-CS:"
 download "riak_cs_${RIAK_CS_VERSION}.deb" "https://packagecloud.io/basho/riak-cs/packages/debian/${DEBIAN_VERSION}/riak-cs_${RIAK_CS_VERSION}-1_amd64.deb/download"
 
 echo "Downloading Stanchion:"
-#download "stanchion_${STANCHION_VERSION}.deb" "https://packagecloud.io/basho/stanchion/packages/debian/${DEBIAN_VERSION}/stanchion_${STANCHION_VERSION}-1_amd64.deb/download"
-curl -# -L -o "stanchion_${STANCHION_VERSION}.deb" "http://s3.amazonaws.com/downloads.basho.com/stanchion/"$(echo $STANCHION_VERSION | pcregrep -o "^\d+\.\d+")"/${STANCHION_VERSION}/debian/7/stanchion_${STANCHION_VERSION}-1_amd64.deb"
+download "stanchion_${STANCHION_VERSION}.deb" "https://packagecloud.io/basho/stanchion/packages/debian/${DEBIAN_VERSION}/stanchion_${STANCHION_VERSION}-1_amd64.deb/download"
 
 echo "Installing Riak, Riak-CS and Stanchion."
 

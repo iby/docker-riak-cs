@@ -40,7 +40,7 @@ function riak_cs_create_bucket(){
         --write-out '%{http_code}' \
         "http://127.0.0.1:8080")
 
-    if [[ "${status_code}" = '200' ]]; then
+    if [ "${status_code}" == '200' ]; then
         echo ' Already exists!'
     else
         local date=$(date -R)
@@ -55,7 +55,7 @@ function riak_cs_create_bucket(){
             --write-out '%{http_code}' \
             "http://127.0.0.1:8080")
 
-        if [ "${status_code}" = '200' ]; then
+        if [ "${status_code}" == '200' ]; then
             echo ' OK!'
         else
             echo ' Failed!'
@@ -81,12 +81,17 @@ function basho_service_start(){
         sleep 1
     done
 
-    if ((tries >= maxTries)); then
+    if [ "${tries}" -ge "${maxTries}" ]; then
         echo -e "\nCould not start ${serviceName} after ${tries} attempts…"
         exit 1
     fi
 
     echo " OK!"
+
+    if [ "${commandName}" == 'riak' ]; then
+        echo -n "Waiting for riak kv service to startup…"
+        riak-admin wait-for-service riak_kv > /dev/null && echo " OK!"
+    fi
 }
 
 #
@@ -111,6 +116,11 @@ function basho_service_restart(){
 
     echo -n "Restarting ${serviceName}…"
     "${commandName}" restart > /dev/null && echo " OK!"
+
+    if [ "${commandName}" == 'riak' ]; then
+        echo -n "Waiting for riak kv service to startup…"
+        riak-admin wait-for-service riak_kv > /dev/null && echo " OK!"
+    fi
 }
 
 function riak_cs_create_admin(){
