@@ -16,7 +16,9 @@ docker run \
     ianbytchek/riak-cs > /dev/null
 echo ' OK!'
 
-sleep 45
+# Apparently 45 seconds is no longer enough when we wait for riak kv service.
+
+sleep 75
 
 # Print docker logs and check that we have credentials and buckets successfully setup.
 
